@@ -119,6 +119,5 @@ class RPC:  # pylint: disable=E1101,R0903
             # Public request
             return auth.access_success_reply(source, "public", to_json=True)
         # Auth needed or expired
-        auth.set_referenced_auth_context(auth_reference, {})
         target_token = auth.sign_target_url(auth.make_source_url(source))
         return auth.access_needed_redirect(target_token, to_json=True)
