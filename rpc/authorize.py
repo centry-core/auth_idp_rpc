@@ -82,9 +82,18 @@ class RPC:  # pylint: disable=E1101,R0903
                 return auth.access_success_reply(
                     source, auth_type, auth_id, auth_reference, to_json=True
                 )
+        # NB: Public rules check is also done in main pylon auth proxy-plugin
+        is_public_route = False
+        for rule in auth.public_rules:
+            if auth._public_rule_matches(rule, source):  # pylint: disable=W0212
+                # Public request
+                is_public_route = True
         # Browser auth
         session_cookie_name = self.context.app.session_cookie_name
         if session_cookie_name not in cookies:
+            # Is public?
+            if is_public_route:
+                return auth.access_success_reply(source, "public", to_json=True)
             # Never visited auth
             target_token = auth.sign_target_url(auth.make_source_url(source))
             return auth.access_needed_redirect(target_token, to_json=True)
@@ -106,10 +115,9 @@ class RPC:  # pylint: disable=E1101,R0903
                 to_json=True,
             )
         # NB: Public rules check is also done in main pylon auth proxy-plugin
-        for rule in auth.public_rules:
-            if auth._public_rule_matches(rule, source):  # pylint: disable=W0212
-                # Public request
-                return auth.access_success_reply(source, "public", to_json=True)
+        if is_public_route:
+            # Public request
+            return auth.access_success_reply(source, "public", to_json=True)
         # Auth needed or expired
         auth.set_referenced_auth_context(auth_reference, {})
         target_token = auth.sign_target_url(auth.make_source_url(source))
