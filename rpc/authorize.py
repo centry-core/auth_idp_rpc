@@ -30,7 +30,7 @@ class RPC:  # pylint: disable=E1101,R0903
     """ RPC Resource """
 
     @web.rpc("auth_authorize")
-    def authorize(self, source, headers, cookies):  # pylint: disable=R0911,R0914
+    def authorize(self, source, headers, cookies):  # pylint: disable=R0911,R0912,R0914
         """ Auth endpoint """
         # Check auth header
         if "Authorization" in headers:
@@ -99,7 +99,7 @@ class RPC:  # pylint: disable=E1101,R0903
             return auth.access_needed_redirect(target_token, to_json=True)
         #
         auth_reference = cookies.get(session_cookie_name)
-        auth_ctx = auth.get_referenced_auth_context(auth_reference)
+        auth_ctx = auth._get_referenced_auth_context(auth_reference)  # pylint: disable=W0212
         if auth_ctx["done"] and \
                 (
                         auth_ctx["expiration"] is None or
