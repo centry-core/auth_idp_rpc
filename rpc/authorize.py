@@ -59,10 +59,10 @@ class RPC:  # pylint: disable=E1101,R0903
                 source, auth_type, auth_id, auth_reference, to_json=True
             )
         # Check other auth headers
-        other_auth_headers = self.descriptor.config.get(
+        other_auth_headers = auth.descriptor.config.get(
             "other_auth_headers", {}
         )
-        for header_name, credential_type in  other_auth_headers.items():
+        for header_name, credential_type in other_auth_headers.items():
             if header_name in headers:
                 credential_data = headers.get(header_name)
                 #
