@@ -32,33 +32,20 @@ class RPC:  # pylint: disable=E1101,R0903
     @web.rpc("auth_authorize")
     def authorize(self, source, headers, cookies):  # pylint: disable=R0911,R0912,R0914
         """ Auth endpoint """
+        allow_auth_traversal = auth.descriptor.config.get("allow_auth_traversal", True)
+        auth_by_header_failed = False
+        #
         with self.context.app.app_context():
             # Check auth header
             if "Authorization" in headers:
                 auth_header = headers.get("Authorization")
-                if " " not in auth_header:
-                    # Invalid auth header
-                    return auth.access_denied_reply(source, to_json=True)
-                #
-                credential_type, credential_data = auth_header.split(" ", 1)
-                credential_type = credential_type.lower()
-                #
-                if credential_type not in auth.credential_handlers:
-                    # No credential handler
-                    return auth.access_denied_reply(source, to_json=True)
-                #
                 try:
-                    auth_type, auth_id, auth_reference = \
-                        auth.credential_handlers[credential_type](
-                            source, credential_data
-                        )
-                except:  # pylint: disable=W0702
-                    # Bad credential
-                    return auth.access_denied_reply(source, to_json=True)
-                #
-                return auth.access_success_reply(
-                    source, auth_type, auth_id, auth_reference, to_json=True
-                )
+                    return self.check_authorization_header(source, auth_header)
+                except ValueError:
+                    if not allow_auth_traversal:
+                        return auth.access_denied_reply(source, to_json=True)
+                    #
+                    auth_by_header_failed = True
             # Check other auth headers
             other_auth_headers = auth.descriptor.config.get(
                 "other_auth_headers", {}
@@ -67,22 +54,13 @@ class RPC:  # pylint: disable=E1101,R0903
                 if header_name in headers:
                     credential_data = headers.get(header_name)
                     #
-                    if credential_type not in auth.credential_handlers:
-                        # No credential handler
-                        return auth.access_denied_reply(source, to_json=True)
-                    #
                     try:
-                        auth_type, auth_id, auth_reference = \
-                            auth.credential_handlers[credential_type](
-                                source, credential_data
-                            )
-                    except:  # pylint: disable=W0702
-                        # Bad credential
-                        return auth.access_denied_reply(source, to_json=True)
-                    #
-                    return auth.access_success_reply(
-                        source, auth_type, auth_id, auth_reference, to_json=True
-                    )
+                        return self.check_credential_data(source, credential_type, credential_data)
+                    except ValueError:
+                        if not allow_auth_traversal:
+                            return auth.access_denied_reply(source, to_json=True)
+                        #
+                        auth_by_header_failed = True
             # NB: Public rules check is also done in main pylon auth proxy-plugin
             is_public_route = False
             for rule in auth.public_rules:
@@ -96,6 +74,9 @@ class RPC:  # pylint: disable=E1101,R0903
                 if is_public_route:
                     return auth.access_success_reply(source, "public", to_json=True)
                 # Never visited auth
+                if auth_by_header_failed:
+                    return auth.access_denied_reply(source, to_json=True)
+                #
                 target_token = auth.sign_target_url(auth.make_source_url(source))
                 return auth.access_needed_redirect(target_token, to_json=True)
             #
@@ -120,5 +101,8 @@ class RPC:  # pylint: disable=E1101,R0903
                 # Public request
                 return auth.access_success_reply(source, "public", to_json=True)
             # Auth needed or expired
+            if auth_by_header_failed:
+                return auth.access_denied_reply(source, to_json=True)
+            #
             target_token = auth.sign_target_url(auth.make_source_url(source))
             return auth.access_needed_redirect(target_token, to_json=True)
