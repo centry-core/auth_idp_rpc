@@ -22,7 +22,7 @@
 from pylon.core.tools import web  # pylint: disable=E0611,E0401
 
 # from tools import context  # pylint: disable=E0401
-from tools import auth  # pylint: disable=E0401
+from tools import auth_core  # pylint: disable=E0401
 
 
 class Method:
@@ -30,18 +30,18 @@ class Method:
 
     @web.method()
     def check_credential_data(self, source, credential_type, credential_data):
-        if credential_type not in auth.credential_handlers:
+        if credential_type not in auth_core.credential_handlers:
             raise ValueError("No credential handler")
         #
         try:
             auth_type, auth_id, auth_reference = \
-                auth.credential_handlers[credential_type](
+                auth_core.credential_handlers[credential_type](
                     source, credential_data
                 )
         except BaseException as exc:  # pylint: disable=W0702
             raise ValueError("Bad credential") from exc
         #
-        return auth.access_success_reply(
+        return auth_core.access_success_reply(
             source, auth_type, auth_id, auth_reference, to_json=True
         )
 
